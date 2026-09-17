@@ -341,6 +341,13 @@ function buildSamplingBody(config: ApiConfig, preset: PresetConfig | null): Reco
     const override = samplingOverrideValues(config);
     if (override.temperature !== undefined) body.temperature = override.temperature;
     if (override.topP !== undefined) body.top_p = override.topP;
+    // 极简请求模式：「不发送 system 角色」开关同时抑制采样参数。
+    // 部分中转/模型对请求体字段严格，多带温度/Top P 会被直接拒绝；
+    // 这里用 delete 而非置空，确保字段根本不出现（预设值与覆盖值一并覆盖）。
+    if (config.avoidSystemRole === true) {
+        delete body.temperature;
+        delete body.top_p;
+    }
     return body;
 }
 
@@ -618,6 +625,12 @@ function buildAnthropicRequest(
     const anthropicSamplingOverride = samplingOverrideValues(config);
     if (anthropicSamplingOverride.temperature !== undefined) body.temperature = anthropicSamplingOverride.temperature;
     if (anthropicSamplingOverride.topP !== undefined) body.top_p = anthropicSamplingOverride.topP;
+    // 极简请求模式：完全不携带 temperature / top_p
+    // （Anthropic 另有「temperature 与 top_p 不可同时指定」的限制，此开关也一并规避）
+    if (config.avoidSystemRole === true) {
+        delete body.temperature;
+        delete body.top_p;
+    }
     if (system) body.system = system;
     if (options.stream) body.stream = true;
     if (options.tools?.length) {
@@ -685,6 +698,11 @@ function buildGeminiRequest(
     const geminiSamplingOverride = samplingOverrideValues(config);
     if (geminiSamplingOverride.temperature !== undefined) generationConfig.temperature = geminiSamplingOverride.temperature;
     if (geminiSamplingOverride.topP !== undefined) generationConfig.topP = geminiSamplingOverride.topP;
+    // 极简请求模式：完全不携带 temperature / topP
+    if (config.avoidSystemRole === true) {
+        delete generationConfig.temperature;
+        delete generationConfig.topP;
+    }
     if (
         options.maxTokens
         && options.maxTokens > 0

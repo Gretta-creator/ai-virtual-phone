@@ -162,8 +162,11 @@ export type ApiConfig = {
     /** 见 temperature：该 API 配置的 top_p 覆盖值（留空沿用预设）。 */
     topP?: number;
     /**
-     * 不发送 system 角色：开启后系统提示词改以 user 角色发送。
-     * 用于不接受 system 角色的中转站/模型（部分 Claude 中转会直接 400），默认关闭。
+     * 极简请求模式（历史字段名，实际语义已扩展）：开启后
+     * ① 系统提示词改以 user 角色发送（不再发 role:"system"）；
+     * ② 请求体里完全不携带 temperature / top_p（无论预设或上面的覆盖值）。
+     * 用于对请求体字段严格、会拒收 system 角色或采样参数的中转站/模型（如部分 Claude 中转），
+     * 默认关闭。注意：开启后 temperature / topP 两个覆盖值会被忽略。
      */
     avoidSystemRole?: boolean;
 };

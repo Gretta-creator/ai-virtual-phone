@@ -129,10 +129,11 @@ export async function simpleLLMCall(
     const configTopP = typeof config.topP === "number" && Number.isFinite(config.topP)
         ? config.topP
         : undefined;
-    const temperature = configTemperature ?? options?.temperature ?? 0.7;
-    const max_tokens = options?.max_tokens;
-    // 不接受 system 角色的中转/模型：把系统提示词主体并入 user 消息后不再发送 system
+    // 极简请求模式（开关同时抑制 system 角色与采样参数）：
+    // 部分中转/模型对请求体字段严格，多带 temperature / top_p 会被直接拒绝
     const avoidSystemRole = config.avoidSystemRole === true;
+    const temperature = avoidSystemRole ? undefined : (configTemperature ?? options?.temperature ?? 0.7);
+    const max_tokens = options?.max_tokens;
     const systemText = messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
 
     try {
@@ -152,8 +153,8 @@ export async function simpleLLMCall(
                 model: config.defaultModel,
                 messages: anthropicMessages,
                 ...(systemMsg ? { system: systemMsg.content } : {}),
-                temperature,
-                ...(configTopP !== undefined ? { top_p: configTopP } : {}),
+                ...(temperature !== undefined ? { temperature } : {}),
+                ...(configTopP !== undefined && !avoidSystemRole ? { top_p: configTopP } : {}),
                 // Anthropic requires max_tokens. Keep this helper aligned with
                 // the main chat engine instead of silently capping output low.
                 max_tokens: max_tokens ?? SIMPLE_ANTHROPIC_AUTO_MAX_TOKENS,
@@ -170,8 +171,8 @@ export async function simpleLLMCall(
             body = JSON.stringify({
                 contents: parts,
                 generationConfig: {
-                    temperature,
-                    ...(configTopP !== undefined ? { topP: configTopP } : {}),
+                    ...(temperature !== undefined ? { temperature } : {}),
+                    ...(configTopP !== undefined && !avoidSystemRole ? { topP: configTopP } : {}),
                     ...(max_tokens ? { maxOutputTokens: max_tokens } : {}),
                 },
             });
@@ -183,8 +184,8 @@ export async function simpleLLMCall(
                 messages: avoidSystemRole
                     ? messages.map(m => (m.role === "system" ? { ...m, role: "user" } : m))
                     : messages,
-                temperature,
-                ...(configTopP !== undefined ? { top_p: configTopP } : {}),
+                ...(temperature !== undefined ? { temperature } : {}),
+                ...(configTopP !== undefined && !avoidSystemRole ? { top_p: configTopP } : {}),
                 ...(max_tokens ? { max_tokens } : {}),
             });
         }
