@@ -451,9 +451,7 @@ export function ApiSettings() {
                                                 </div>
                                             </div>
                                             <span className="menu-desc ml-1 whitespace-normal break-words leading-[1.45]">
-                                                留空 = 沿用预设（工坊/小卷等无预设的调用用各家默认 0.8 / 1.0）。填了则本条 API 配置的全部调用都强制使用该值，不受预设影响；两个框相互独立，可只填一个。清空即恢复沿用预设。
-                                                <br />
-                                                注意：Anthropic 接口不允许同时指定温度与 Top P；若下方开启了「不发送 system 角色与采样参数」，这两项会被忽略、完全不发送。
+                                                留空 = 沿用预设（工坊/小卷等无预设的调用用各家默认 0.8 / 1.0）。填了则本条 API 配置的全部调用都强制使用该值，不受预设影响。清空即恢复沿用预设。
                                             </span>
                                         </div>
 
@@ -492,11 +490,6 @@ export function ApiSettings() {
                                         <div className="ui-toggle-row mt-2">
                                             <span className="flex min-w-0 flex-col">
                                                 <span className="menu-label font-medium">不发送 system 角色与采样参数</span>
-                                                <span className="menu-desc whitespace-normal break-words leading-[1.45]">
-                                                    开启后：① 系统提示词改以 user 角色发送（请求里不再出现 system）；② 请求体完全不携带 temperature 与 top_p（上面的采样参数覆盖会被忽略）。
-                                                    <br />
-                                                    适用于对请求体字段严格、会拒收 system 角色或采样参数的中转站/模型（如部分 Claude 中转直接报错）。系统提示词内容不会丢失，只是换了角色发送。默认关闭。
-                                                </span>
                                             </span>
                                             <Toggle
                                                 checked={config.avoidSystemRole === true}
