@@ -25,6 +25,14 @@ const DEFAULT_CONFIGS: ApiConfig[] = [
     }
 ];
 
+/** 采样参数输入框：空串/非法值 → undefined（= 沿用预设），保证 0 不会被当成「未填」 */
+function parseOptionalNumber(raw: string): number | undefined {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : undefined;
+}
+
 function getNativeToolProtocolLabel(config: ApiConfig): string {
     if (config.provider === "Anthropic" && !config.baseUrl) return "Anthropic";
     if (config.provider === "Google") return "Gemini";
@@ -412,6 +420,40 @@ export function ApiSettings() {
                                                 <span className="break-all leading-[1.5]">{testResult[config.id].message}</span>
                                             </Alert>
                                         )}
+
+                                        {/* 采样参数覆盖：留空 = 沿用预设；填了就覆盖该配置的全部调用（含工坊/小卷） */}
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            <label className="menu-desc ml-1">采样参数覆盖（可选，留空沿用预设）</label>
+                                            <div className="flex gap-2">
+                                                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                                    <span className="menu-desc ml-1" style={{ fontSize: "0.85em" }}>温度 (temperature)</span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        step="0.05"
+                                                        value={config.temperature ?? ""}
+                                                        onChange={(e) => updateConfig(config.id, { temperature: parseOptionalNumber(e.target.value) })}
+                                                        placeholder="沿用预设"
+                                                        className="ui-input flex-1"
+                                                    />
+                                                </div>
+                                                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                                    <span className="menu-desc ml-1" style={{ fontSize: "0.85em" }}>Top P</span>
+                                                    <input
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        step="0.05"
+                                                        value={config.topP ?? ""}
+                                                        onChange={(e) => updateConfig(config.id, { topP: parseOptionalNumber(e.target.value) })}
+                                                        placeholder="沿用预设"
+                                                        className="ui-input flex-1"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <span className="menu-desc ml-1 whitespace-normal break-words leading-[1.45]">
+                                                留空 = 沿用预设（工坊/小卷等无预设的调用用各家默认 0.8 / 1.0）。填了则本条 API 配置的全部调用都强制使用该值，不受预设影响；两个框相互独立，可只填一个。清空即恢复沿用预设。
+                                            </span>
+                                        </div>
 
                                         <div
                                             className="ui-toggle-row mt-2 overflow-visible"

@@ -294,7 +294,20 @@ export function parseProviderStreamDelta(providerKind: LlmProviderKind, data: un
     return parseOpenAICompatibleStreamDelta(data);
 }
 
-function buildSamplingBody(preset: PresetConfig | null): Record<string, unknown> {
+/** API 配置级采样参数覆盖值。留空（undefined）= 沿用预设；
+ *  0 是有效值，所以必须用 undefined 判断，不能用真值判断。 */
+function samplingOverrideValues(config: ApiConfig): { temperature?: number; topP?: number } {
+    return {
+        temperature: typeof config.temperature === "number" && Number.isFinite(config.temperature)
+            ? config.temperature
+            : undefined,
+        topP: typeof config.topP === "number" && Number.isFinite(config.topP)
+            ? config.topP
+            : undefined,
+    };
+}
+
+function buildSamplingBody(config: ApiConfig, preset: PresetConfig | null): Record<string, unknown> {
     const enabled = resolveEnabledGenerationParameters(preset);
     const body: Record<string, unknown> = {};
     if (enabled.has("temperature")) body.temperature = preset?.temperature ?? 0.8;
@@ -308,6 +321,11 @@ function buildSamplingBody(preset: PresetConfig | null): Record<string, unknown>
     if (enabled.has("top_k")) body.top_k = preset?.top_k ?? 0;
     if (enabled.has("min_p")) body.min_p = preset?.min_p ?? 0;
     if (enabled.has("top_a")) body.top_a = preset?.top_a ?? 0;
+    // 覆盖放最后：配置里填了采样参数就赢过预设（含预设白名单未放行该项的情况）。
+    // 聊天/工坊/小卷全部经此构造请求 → 一处生效、全场景统一。
+    const override = samplingOverrideValues(config);
+    if (override.temperature !== undefined) body.temperature = override.temperature;
+    if (override.topP !== undefined) body.top_p = override.topP;
     return body;
 }
 
@@ -520,7 +538,7 @@ function buildOpenAICompatibleRequest(
             }
             return { role: message.role, content: openAIContent(message.content) };
         }),
-        ...buildSamplingBody(preset),
+        ...buildSamplingBody(config, preset),
     };
     if (
         options.maxTokens
@@ -581,6 +599,10 @@ function buildAnthropicRequest(
     if (enabled.has("temperature")) body.temperature = preset?.temperature ?? 0.8;
     if (preset && enabled.has("top_p")) body.top_p = preset.top_p ?? 1;
     if (enabled.has("top_k")) body.top_k = preset?.top_k ?? 0;
+    // API 配置级采样参数覆盖（留空则维持上面的预设行为）
+    const anthropicSamplingOverride = samplingOverrideValues(config);
+    if (anthropicSamplingOverride.temperature !== undefined) body.temperature = anthropicSamplingOverride.temperature;
+    if (anthropicSamplingOverride.topP !== undefined) body.top_p = anthropicSamplingOverride.topP;
     if (system) body.system = system;
     if (options.stream) body.stream = true;
     if (options.tools?.length) {
@@ -644,6 +666,10 @@ function buildGeminiRequest(
     if (enabled.has("temperature")) generationConfig.temperature = preset?.temperature ?? 0.8;
     if (enabled.has("top_p")) generationConfig.topP = preset?.top_p ?? 1;
     if (enabled.has("top_k")) generationConfig.topK = preset?.top_k ?? 0;
+    // API 配置级采样参数覆盖（留空则维持上面的预设行为）
+    const geminiSamplingOverride = samplingOverrideValues(config);
+    if (geminiSamplingOverride.temperature !== undefined) generationConfig.temperature = geminiSamplingOverride.temperature;
+    if (geminiSamplingOverride.topP !== undefined) generationConfig.topP = geminiSamplingOverride.topP;
     if (
         options.maxTokens
         && options.maxTokens > 0

@@ -153,6 +153,14 @@ export type ApiConfig = {
     enableImageRecognition: boolean;
     enableImageGeneration: boolean;
     preventEmptyGenerateRambling?: boolean;
+    /**
+     * 采样参数覆盖（可选）。留空 = 沿用预设（无预设的调用走各家默认 temperature 0.8 / top_p 1.0）。
+     * 填了就覆盖预设值，并作用于该 API 配置的**所有**调用（聊天、工坊、小卷、记忆摘要等），
+     * 且不受预设的「参数白名单」限制。注意 0 是有效值，判断时必须用 undefined 而非真值。
+     */
+    temperature?: number;
+    /** 见 temperature：该 API 配置的 top_p 覆盖值（留空沿用预设）。 */
+    topP?: number;
 };
 
 // --- VoiceApiConfig (migrated from voice-settings.tsx) ---

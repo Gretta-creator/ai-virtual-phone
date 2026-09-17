@@ -106,7 +106,15 @@ export async function simpleLLMCall(
     }
 
     const headers = buildRequestHeaders(config, baseUrl);
-    const temperature = options?.temperature ?? 0.7;
+    // API 配置级采样参数覆盖优先于调用方传参：设置页填了就强制作用于本条配置的全部调用
+    // （0 是有效值，必须用 undefined / isFinite 判断，不能用真值判断）
+    const configTemperature = typeof config.temperature === "number" && Number.isFinite(config.temperature)
+        ? config.temperature
+        : undefined;
+    const configTopP = typeof config.topP === "number" && Number.isFinite(config.topP)
+        ? config.topP
+        : undefined;
+    const temperature = configTemperature ?? options?.temperature ?? 0.7;
     const max_tokens = options?.max_tokens;
 
     try {
@@ -125,6 +133,7 @@ export async function simpleLLMCall(
                 messages: anthropicMessages,
                 ...(systemMsg ? { system: systemMsg.content } : {}),
                 temperature,
+                ...(configTopP !== undefined ? { top_p: configTopP } : {}),
                 // Anthropic requires max_tokens. Keep this helper aligned with
                 // the main chat engine instead of silently capping output low.
                 max_tokens: max_tokens ?? SIMPLE_ANTHROPIC_AUTO_MAX_TOKENS,
@@ -142,6 +151,7 @@ export async function simpleLLMCall(
                 contents: parts,
                 generationConfig: {
                     temperature,
+                    ...(configTopP !== undefined ? { topP: configTopP } : {}),
                     ...(max_tokens ? { maxOutputTokens: max_tokens } : {}),
                 },
             });
@@ -152,6 +162,7 @@ export async function simpleLLMCall(
                 model: config.defaultModel,
                 messages,
                 temperature,
+                ...(configTopP !== undefined ? { top_p: configTopP } : {}),
                 ...(max_tokens ? { max_tokens } : {}),
             });
         }
