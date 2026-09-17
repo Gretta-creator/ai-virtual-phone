@@ -91,6 +91,21 @@ export function isNativeGoogleApi(config: ApiConfig): boolean {
 }
 
 /**
+ * avoidSystemRole 开启时，把系统提示词并入首条 user 消息（没有 user 消息时新建一条）。
+ * 用于不接受 system 角色的中转站/模型（如部分 Claude 中转）。
+ */
+function mergeSystemTextIntoFirstUser(
+    messages: { role: string; content: string }[],
+    systemText: string,
+): { role: string; content: string }[] {
+    const text = systemText.trim();
+    if (!text) return messages;
+    const index = messages.findIndex((m) => m.role === "user");
+    if (index === -1) return [{ role: "user", content: text }, ...messages];
+    return messages.map((m, i) => (i === index ? { ...m, content: `${text}\n\n${m.content}` } : m));
+}
+
+/**
  * Send a simple LLM request (single user message) and return the text response.
  * Used by summarizer, moments-engine, and other non-chat LLM calls.
  * Handles all provider formats automatically.
@@ -116,6 +131,9 @@ export async function simpleLLMCall(
         : undefined;
     const temperature = configTemperature ?? options?.temperature ?? 0.7;
     const max_tokens = options?.max_tokens;
+    // 不接受 system 角色的中转/模型：把系统提示词主体并入 user 消息后不再发送 system
+    const avoidSystemRole = config.avoidSystemRole === true;
+    const systemText = messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
 
     try {
         let fetchUrl: string;
@@ -124,10 +142,12 @@ export async function simpleLLMCall(
         if (isNativeAnthropicApi(config)) {
             // Anthropic Messages API
             fetchUrl = `${baseUrl.replace(/\/$/, "")}/messages`;
-            const anthropicMessages = messages
-                .filter(m => m.role !== "system")
+            const anthropicBase = avoidSystemRole
+                ? mergeSystemTextIntoFirstUser(messages.filter(m => m.role !== "system"), systemText)
+                : messages.filter(m => m.role !== "system");
+            const anthropicMessages = anthropicBase
                 .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
-            const systemMsg = messages.find(m => m.role === "system");
+            const systemMsg = avoidSystemRole ? undefined : messages.find(m => m.role === "system");
             body = JSON.stringify({
                 model: config.defaultModel,
                 messages: anthropicMessages,
@@ -160,7 +180,9 @@ export async function simpleLLMCall(
             fetchUrl = buildChatCompletionsUrl(baseUrl);
             body = JSON.stringify({
                 model: config.defaultModel,
-                messages,
+                messages: avoidSystemRole
+                    ? messages.map(m => (m.role === "system" ? { ...m, role: "user" } : m))
+                    : messages,
                 temperature,
                 ...(configTopP !== undefined ? { top_p: configTopP } : {}),
                 ...(max_tokens ? { max_tokens } : {}),

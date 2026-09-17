@@ -487,6 +487,19 @@ export function ApiSettings() {
                                             />
                                         </div>
 
+                                        <div className="ui-toggle-row mt-2">
+                                            <span className="flex min-w-0 flex-col">
+                                                <span className="menu-label font-medium">不发送 system 角色</span>
+                                                <span className="menu-desc whitespace-normal break-words leading-[1.45]">
+                                                    开启后系统提示词改以 user 角色发送。适用于不接受 system 角色的中转站或模型（如部分 Claude 中转会直接报错）。默认关闭。
+                                                </span>
+                                            </span>
+                                            <Toggle
+                                                checked={config.avoidSystemRole === true}
+                                                onChange={(v) => updateConfig(config.id, { avoidSystemRole: v })}
+                                            />
+                                        </div>
+
                                     </>
                                 )
                             })()}

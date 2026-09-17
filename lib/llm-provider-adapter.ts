@@ -236,6 +236,19 @@ function stripVisionParts(messages: LlmRequestMessage[]): LlmRequestMessage[] {
     });
 }
 
+/**
+ * 把所有 system 消息降级为 user（内容与 marker 原样保留）。
+ * 用于不接受 system 角色的中转站/模型；默认关闭。
+ * Anthropic/Gemini 路径无需额外处理：降级后不再有 system 可提取到顶层，
+ * 而它们的消息压缩会把连续同角色消息合并，不会破坏「角色必须交替」的要求。
+ */
+function demoteSystemMessages(messages: LlmRequestMessage[]): LlmRequestMessage[] {
+    return messages.map((message): LlmRequestMessage => {
+        if (message.role !== "system") return message;
+        return { role: "user", content: message.content, marker: message.marker };
+    });
+}
+
 export function buildProviderRequest(
     config: ApiConfig,
     preset: PresetConfig | null,
@@ -256,7 +269,9 @@ export function buildProviderRequest(
     // 图像识别关闭时的总闸：无论哪条路径塞入了 image_url part，一律降级为
     // "[图片]" 文本，避免不支持视觉的模型（如 DeepSeek）收到 multipart 返回 400。
     const guardedMessages = config.enableImageRecognition === true ? messages : stripVisionParts(messages);
-    const providerMessages = ensureProviderHasUserMessage(normalizeNativeToolMessageAdjacency(guardedMessages));
+    // 不接受 system 角色的中转/模型：在进入各协议构造前统一降级为 user
+    const roleAdjustedMessages = config.avoidSystemRole === true ? demoteSystemMessages(guardedMessages) : guardedMessages;
+    const providerMessages = ensureProviderHasUserMessage(normalizeNativeToolMessageAdjacency(roleAdjustedMessages));
 
     if (providerKind === "anthropic") {
         return buildAnthropicRequest(config, preset, baseUrl, providerMessages, options);
